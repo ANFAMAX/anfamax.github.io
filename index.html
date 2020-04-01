@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <meta charset="utf-8" />
+    <title>ANFAMAX : HOME</title>
+  </head>
+  <body>
+    <div class="Index">
+      <h3>H2 Index</h3>
+      <ul>
+        <li><a href="#source_code">Source Code</a></li>
+        <li><a href="#symbols">Symbols</a></li>
+        <li><a href="#primitive_types">Primitive Types</a></li>
+        <li><a href="#types">More Types</a></li>
+        <li><a href="#long_chars">Long Char Constants</a></li>
+        <li><a href="#const">Const</a></li>
+        <li><a href="#include">Include</a></li>
+        <li><a href="#main">No "main"</a></li>
+        <li><a href="#return">No "return"</a></li>
+        <li><a href="#snippets">H2 Snippets</a></li>
+        <li><a href="#eval_order">Order of evaluation</a></li>
+        <li><a href="#macros">Macros</a></li>
+        <li><a href="#example">A practical example of H2</a></li>
+
+      </ul>
+    </div>
+    <div class="Contents">
+      <div>
+        <h1>A tour of the H2 programming language</h1>
+        <p>Today I'd like to write about H2, a programming language I've been working on.</p>
+        <p>You will see me reference the C language often in this article, and there's a good reason for that.</p>
+        <p>Under many aspects, except for one, H2 is just like C. It is statically typed, compiled, not garbage collected and sacrifices safety for performance.</p>
+        <p>So what makes H2 different? Syntax. Now, this is not another C clone, I'm talking about a radical change in syntax.</p>
+        <p>I was exposed to LISP a few months ago, and it made me realize just how much sometimes I wish I could tweak/extend C without having to write a whole preprocessor (a <span class="Keyword">flags</span> construct sure would be nice...). So, how come we don't have a low level programming language that is as easy to extend as LISP?</p>
+        <p>Actually, I know why. LISP is ugly.</p>
+        <p>For H2, I came up with a syntax that removes <em>one</em> layer of parenthesis. Doesn't sound like much, does it?</p>
+        <p>Turns out, just removing one layer does wonders for readability. But enough rambling for now, let's start the tour!</p>
+        <h2 id="source_code">Source Code</h2>
+        <p>Like in LISP, source code is represented internally as a sequence of atoms.</p>
+        <p>An atom is a simple data structure that can represent a number, a string, a symbol or a list of other atoms.</p>
+        <p>While LISP offers only one way to write a list of atoms, my language gives you two options:</p>
+        <pre>LISP:  (foo bar)</pre>
+        <pre>H2:    (foo bar)   or    foo bar;</pre>
+        <p>The semicolon syntax follows a simple rule: once a ';' is encountered, it puts all the atoms that precede it up until a '(', another ';' or the beginning of the file in a list. ';' and '(' of already closed lists are ignored.</p>
+        <p>That might sound a little confusing, so let's look at some code written in two ways: on the left hand side we use the semicolon syntax, on the right hand side the typical LISP syntax.</p>
+        <div class="HorizontalViewer">
+          <div class="HVEntry">
+            <pre>Foo Bar; Foo Bar;</pre>
+            <pre>Foo (Bar) Hello;</pre>
+            <pre>Foo (Hello 1; World 2;);</pre>
+          </div>
+          <div class="HVEntry">
+            <pre>-></pre>
+            <pre>-></pre>
+            <pre>-></pre>
+          </div>
+          <div class="HVEntry">
+            <pre>(Foo Bar) (Foo Bar)</pre>
+            <pre>(Foo (Bar) Hello)</pre>
+            <pre>(Foo ((Hello 1) (World 2)))</pre>
+          </div>
+        </div>
+        <h2 id="symbols">Symbols</h2>
+        <p>There aren't many reserved characters is H2, which means that compared to C you have a wider set of chars available for your symbols.</p>
+        <p>Here's a list of all the off-limit characters: ( ) , ` " ' @</p>
+        <h2 id="primitive_types">Primitive Types</h2>
+        <p>I don't think anybody likes implementation dependent crap, so primitive types in H2 have a well defined representation.</p>
+        <p>I8, I16, I32 and I64 are used for signed integers.</p>
+        <p>U8, U16, U32 and U64 are used for unsigned integers.</p>
+        <p>F32 and F64 are used for floating point values.</p>
+        <h2 id="types">More Types</h2>
+        <p>This language has pointers, arrays and function pointers, and they all look very different from their C counterparts.</p>
+        <div class="HorizontalViewer">
+          <div class="HVEntry">
+            <pre>(ptr U32)</pre>
+            <pre>(3 U32)</pre>
+            <pre>(fn U32 U32)</pre>
+          </div>
+          <div class="HVEntry">
+            <pre>-></pre>          
+            <pre>-></pre>          
+            <pre>-></pre>          
+          </div>
+          <div class="HVEntry">
+            <pre>U32*</pre>
+            <pre>U32[3]</pre>
+            <pre>U32(*)(U32)</pre>
+          </div>
+        </div>
+        <p>If you want C-like types, typedefs can get you close (remember, H2 does not have as many reserved chars as C).</p>
+        <pre>typedef (ptr U32) U32*</pre>
+        <pre>          (3 U32) U32[3];</pre>
+        <h2 id="long_chars">Long Char Constants</h2>
+        <p>A simple extension of C's char constants.</p>
+        <p>The left hand side is valid in H2, while the right hand side is what you would have to type in C.</p>
+        <pre>'ABCD'  ->   ('A' << 24) | ('B' << 16) | ('C' << 8) | 'D'</pre>
+        <h2 id="const">Const</h2>
+        <p>Constants are different from C++.</p>
+        <p>They are not variables and as such do not have an address.</p>
+        <p>They are evaluated at compile time and are limited to integers, floats and strings.</p>
+        <pre>H2:  const FOO (* 1024 71);</pre>
+        <pre>C:   #define FOO (1024 * 71)    //  Not guaranteed to be evaluated at compile time.</pre>
+        <h2 id="include">Include</h2>
+        <p>I don't know how I want to deal with libraries and modules so for now I've settled for a very rudimentary include.</p>
+        <p>It's similar to C's include, the main difference being that strings don't have to be hard coded, you can generate them at compile time.</p>
+        <pre>include "filepath.H2" "anotherfile.H2" (FunctionThatReturnsAString 1 2 3);</pre>
+        <h2 id="main">No "main"</h2>
+        <p>H2 doesn't have a main function. Code at the global scope is considered to be the "main".</p>
+        <p>Since there's no main, the command line arguments are stored in global variables Argc and Argv.</p>
+        <p>I'm still wondering whether this is a good idea or not, I guess we'll see...</p>
+        <h2 id="return">No "return"</h2>
+        <p>I don't like functions that have multiple exit points. That's why the result of the last expression of the body of a function is automatically returned.</p>
+        <p>This can easily be circumvented using a <span class="Keyword">block</span>, which you'll see in a second.</p>
+        <h2 id="snippets">H2 Snippets</h2>
+        <h3>Function Definition</h3>
+        <p>A function definition is a list of atoms (notice the terminating semicolon) where the leading atom is the symbol <span class="Keyword">fn</span>.</p>
+        <p>As an example I'm defining two functions. After the parameters (if any) we specify the return type and at the very end an atom representing the body of the function.</p>
+        <pre>
+  fn Hello (Bar I64) (Foo F32) U32 (
+    //  Function body
+  );
+          </pre>
+          <pre>
+  fn Foo void (
+    //  Function body
+  );</pre>
+        <h3>Function Call</h3>
+        <p>A function call is a list of atoms where the first atom is a symbol representing the function name and the remaining atoms are the arguments.</p>
+        <pre>Hello 1 2;</pre>
+        <h3>Declarations</h3>
+        <p>Declarations start with a <span class="Keyword">decl</span> symbol and are followed by variable names and types.</p>
+        <pre>
+  decl foo (ptr U32)
+      bar F32
+      hello (3 U32);</pre>
+        <p>In this case they are not getting initialized, but you can if you want to, and if you do the compiler can infer the type of the variable if you don't specify it.</p>
+        <pre>
+  decl foo   = 1
+      bar   = 2.0f
+      hello = (Hello foo bar);</pre>
+        <h3>Access</h3>
+        <p><span class="Keyword">-></span> is used for accessing fields of a struct or elements of an array.</p>    
+        <pre>
+  -> foo bar hello 3;</pre>
+        <p>While in C you need to use a different symbol depending on whether you are accessing a struct, a pointer to a struct or an array, H2 does not make a distinction.
+           A number or a list represent an array access, the equivalent of [] in C. <span class="Keyword">->*</span> is used to dereference a variable, while <span class="Keyword">->&</span> is used to get the address.
+        </p>
+        <div class="HorizontalViewer">
+          <div class="HVEntry">
+            <pre>-> Foo 3;</pre>
+            <pre>-> Foo (MyVariable);</pre>
+            <pre>-> Foo (MyFunction 1 2);</pre>
+            <pre>->* Foo Bar;</pre>
+            <pre>->& Foo Bar;</pre>
+          </div>
+          <div class="HVEntry">
+            <pre>-></pre>
+            <pre>-></pre>
+            <pre>-></pre>
+            <pre>-></pre>
+            <pre>-></pre>
+          </div>
+          <div class="HVEntry">
+            <pre>Foo[3];</pre>
+            <pre>Foo[MyVariable];</pre>
+            <pre>Foo[MyFunction(1, 2)];</pre>
+            <pre>*Foo.Bar;</pre>
+            <pre>&Foo.Bar;</pre>
+          </div>
+        </div>
+        <h3>Assignment</h3>
+        <p><span class="Keyword">set</span> is followed by pairs of l-values and r-values.</p>
+        <pre>
+  set foo 2
+      bar 3.0f
+      (-> foozle hello) 10;</pre>
+        <h3>Blocks (not in C)</h3>
+        <p>Blocks of code have a name and can optionally return values.</p>
+        <pre>
+  block foo (
+    // code
+    return-from foo;
+    // more code (unreachable)
+  );</pre>
+        <h3>Labels</h3>
+        <p>Unlike C, labels have a structure. Loops are not built into the language, so labels are very useful to build custom looping constructs.</p>
+        <pre>
+  labels
+    foo (
+      // code
+      goto exit;
+    )
+    bar (
+      // code
+      goto foo;
+    )
+    exit;</pre>
+        <h3>Function Pointers</h3>
+        <p>To get the address of a function, you use <span class="Keyword">function</span>.</p>
+        <p>To call a function pointer, you use <span class="Keyword">call</span>.</p>
+        <pre>
+  decl foo = (function Hello);
+  call foo 1 2.0f;</pre>
+  <h3>Operators</h3>
+  <p>Most operators in H2 are the same as in C except for a handful (which are listed below).</p>
+  <p>Also, <span class="Keyword">and</span> and <span class="Keyword">or</span> are not built into the language, they have been implemented as macros.</p>
+  <ul>
+    <li>eq</li>
+    <li>neq</li>
+    <li>not</li>
+    <li>and</li>
+    <li>or</li>
+  </ul>
+  <p><span class="Keyword">neq</span> is special. Since it takes a single value, it automatically accumulates the remaining atoms in the list.
+    I'm sure an example will clarify:
+  </p>
+  <pre>not (MyFunction arg0 arg1);  // Valid</pre>
+  <pre>not MyFunction arg0 arg1;    // Also valid! The compiler will transofm this to the above</pre>
+  <h3>Scopes</h3>
+  <p>In C you use brackets to open a scope, in H2 we don't have brackets, we have a simple rule.</p>
+  <p>When the first atom of a list is another list, we open a scope.</p>
+  <pre>
+  (
+    decl x = 1.0f y = 2.0f;
+    SomeFunction (+ x y) true "str";
+  )</pre>
+        <p>In H2, scopes return the result of the last evaluated atom (unless it evaluates to void).</p>
+        <h3>And more...</h3>
+        <h4>Struct</h4>
+        <pre>  struct foo
+    Bar U32
+    Hello F64;</pre>
+        <h4>Cast</h4>
+        <pre>
+  cast U32 2.0f;</pre>
+        
+        <h2 id="eval_order">Order of evaluation</h2>
+        <p>There are no forward declarations in H2.</p>
+        <p>The order of evaluation follows a very simple scheme.</p>
+        <p>Since the symbols in the body of a function are resolved when we build the AST, we just defer the AST building phase for as long as possible.</p>
+        <p>That is, instead of building the AST at the function definition, we build it either when it's time to emit that function or when we need to interpret a call to it.</p>
+        <div class="HorizontalViewer">
+          <div class="HVSeparator">
+            <pre>
+// Will work
+fn Foo U32 (
+  Bar 1 2;
+);
+
+fn Bar (A U32) (B U32) U32 (
+  // ...
+);
+
+const Hello (Foo);</pre>
+          </div>
+          <div class="HVEntry">
+            <pre>
+// Won't work
+fn Foo U32 (
+  Bar 1 2;
+);
+
+const Hello (Foo);
+
+fn Bar (A U32) (B U32) U32 (
+  // ...
+);</pre>
+          </div>
+        </div>
+        <h2 id="macros">Macros</h2>
+        <p>The type of the parameters and the return type of a macro is <span class="Keyword">atom</span>, so you never need to specify it.</p>
+        <p>The <span class="Keyword">atom</span> type is exposed by the compiler and is only available at compile time.</p>
+        <p>Just like in LISP, building a list of atoms is a straightforward process:</p>
+        <ul>
+          <li>Quasiquote ` is used to build a list.</li>
+          <li>Comma , escapes part of a quasiquoted list, which is then evaluated.</li>
+          <li>At @ is used to splice lists.</li>
+        </ul>
+        <p>If you are confused I recommend taking a look at some LISP tutorials on macros. The syntax for this language is very similar, so the concepts will transfer easily.</p>
+        <p>A difference is that the functions exposed by the H2 compiler to manipulate atoms are different from LISP. For now there are only a few functions, but I'm sure this list will grow.</p>
+        <ul>
+          <li><span class="Keyword">head</span>: returns the first atom in a list.</li>
+          <li><span class="Keyword">rest</span>: returns the atoms after the head of a list. Returns a special <span class="Keyword">null atom</span> if there are no atoms.</li>
+          <li><span class="Keyword">free-atom</span>: frees a list of atoms.</li>
+          <li><span class="Keyword">null-atom?</span>: returns true if the argument is the 'null atom'</li>
+          <li><span class="Keyword">insert-atom</span>: inserts an atom in front of a list.</li>
+          <li><span class="Keyword">append-atom</span>: appends an atom at the end of a list.</li>
+          <li><span class="Keyword">symbol-eq</span>: returns true if two atoms represent the same symbol.</li>
+          <li><span class="Keyword">gensym</span>: returns a symbol which is not guaranteed to be unique since we are outputting C code.</li>
+          <li><span class="Keyword">fail</span>: abort compilation and give an error.</li>
+          <li><span class="Keyword">list-length</span>: returns the number of atoms in a list.</li>
+        </ul>
+        <p>There is one final thing about macros that requires some explanation.</p>
+        <p>Say you write a macro that looks like this:</p>
+        <pre>
+  macro foo Param Body (
+    // Imagine some macro stuff happening here
+  );</pre>
+        <p>And then you use that macro somewhere in your code like this:</p>
+        <pre>
+  foo 1 2 3 4;</pre>
+        <p>As you can see, we are trying to pass too many atoms to the <span class="Keyword">foo</span> macro, but somehow the H2 compiler accepts this code. How come?</p>
+        <p>When you pass too many atoms to a macro, the compiler secretly builds a list and binds that to the last parameter of the macro.</p>
+        <p>So in the case illustrated above, the code would be transformed to:</p>
+        <pre>
+  foo 1 (2 3 4);</pre>
+        <p>And the list (2 3 4) will be bound to the <span class="Keyword">Body</span> parameter.</p>
+        <h2 id="example">A practical example of H2</h2>
+        <p>Enough chit chat, what does a program written in H2 actually look like?</p>
+        <p>To give you an idea, I wrote a program called 'Dumboot' that does a simple job. It takes some binary data and generates a bootable ISO image using that binary data for the bootloader.</p>
+        <p>I'm still not quite used to powerful macros, but for this program I did end up writing a macro that helped me keep the code nice and simple.</p>
+        <pre>
+          
+  /*  Alex Famlonga 2020: Dumb tool to generate a bootable ISO image  */
+
+  //  NOTE(alex): Import common macros such as loop, enum, inc
+  include "macros.h2";
+
+  typedef (ptr U8)   *U8
+          (ptr void) *void;
+
+  fn Kilobytes (Bytes U64) U64 (* Bytes 1024);
+
+  const SECTOR_PRIMARY    0x10
+        SECTOR_BOOT       0x11
+        SECTOR_TERMINATOR 0x12
+        SECTOR_CATALOG    0x13
+        SECTOR_LOADER     0x14
+        SECTOR_END        0x15
+        
+        DVD_SECTOR_SIZE  (Kilobytes  2)
+        SYSTEM_AREA_SIZE (Kilobytes 32)
+        OUTPUT_SIZE      (* DVD_SECTOR_SIZE SECTOR_END)
+        
+        VOL_DESC_BOOT         0
+        VOL_DESC_PRIMARY      1
+        VOL_DESC_TERMINATOR 255;
+        
+  fn Fatal (Msg *U8) void (
+    print Msg;
+    print "\n";
+    exit 1;
+  );
+
+  fn EndianMirror (Bytes U32) (Value U32) U64 (
+    decl result U64 = Value
+        mask   U64 = 0xFF
+        shift  U32 = (- (* Bytes 16) 8);
+    
+    dotimes it Bytes (
+      set result (| result (<< (& Value mask) shift))
+          mask   (<< mask 8)
+          shift  (- shift 16)
+    );
+    result;
+  );
+
+  fn StrLen (String *U8) U32 (
+    decl it U32;
+    loop for (set it 0) (neq (-> String (it)) 0) (inc it);
+    it;
+  );
+
+  fn GetSectorAddress (Base *void) (Sector U32) *U8 (
+    decl result = (+ (cast *U8 Base) (* DVD_SECTOR_SIZE Sector));
+    result;
+  );
+
+  macro dotimes IteratorName To Body (
+    `loop for (decl ,IteratorName = 0) (< ,IteratorName ,To) (inc ,IteratorName) ,Body;
+  );
+
+  macro step-atom List (
+    decl varname = (gensym);
+    `(decl ,varname = (head ,List); set ,List (rest ,List); ,varname;);
+  );
+
+  macro WriteSector Buffer SectorIndex Body (
+    decl baseAddress = (gensym)
+         result      = (`(decl ,baseAddress = (GetSectorAddress ,Buffer ,SectorIndex)))
+         atomIt      = Body;
+    
+    loop while (not null-atom? atomIt) (
+      decl offset       = (step-atom atomIt)
+           fieldType    = (step-atom atomIt);
+      
+      if (symbol-eq (`string) fieldType) (
+        decl maxLen = (step-atom atomIt)
+             str    = (step-atom atomIt);
+        
+        append-atom (->& result) (`
+          (decl writeAddress = (+ ,baseAddress ,offset)
+                localStr  = ,str
+                strLen    = (StrLen localStr)
+                remaining = (- ,maxLen strLen))
+          (if (> strLen ,maxLen) (Fatal "String field was too long."))
+          (dotimes it strLen (set (-> writeAddress (it)) (-> localStr (it))))
+        );
+      ) else (
+        decl writeExpr = (step-atom atomIt);
+        
+        append-atom (->& result) (`
+          (decl writeAddress = (cast (ptr ,fieldType) (+ ,baseAddress ,offset)))
+          (set (->* writeAddress) ,writeExpr)
+        );
+      );
+    );
+    
+    free-atom Body;
+    result;
+  );
+
+  macro WriteDescriptor Buffer SectorIndex Body (
+    `WriteSector ,Buffer ,SectorIndex
+      1 string 5 "CD001"
+      6 U8       1
+      ,@Body
+  );
+
+  //  Main
+
+  if (neq Argc 3)
+    (Fatal "Invalid arguments: dumboot expects an input name and an output name.");
+
+  decl inHandle  = (Win32CreateFile (-> Argv 1) GENERIC_READ  0 OPEN_EXISTING)
+       outHandle = (Win32CreateFile (-> Argv 2) GENERIC_WRITE 0 CREATE_ALWAYS)
+       size      = (Win32GetFileSize inHandle);
+
+  if (not Win32IsHandleValid inHandle)
+    (Fatal "File could not be opened.");
+  if (not Win32IsHandleValid outHandle)
+    (Fatal "Output file could not be created.");
+  if (> size DVD_SECTOR_SIZE)
+    (Fatal "File too big, the maximum size of the bootloader is 2048 bytes.");
+
+  decl imageBuffer = (cast *U8 (Win32VirtualAlloc OUTPUT_SIZE));
+
+  WriteDescriptor imageBuffer SECTOR_PRIMARY
+    0   U8         VOL_DESC_PRIMARY
+    80  U64        (EndianMirror 4 SECTOR_END)
+    120 U32        (EndianMirror 2 1)
+    124 U32        (EndianMirror 2 1)
+    128 U32        (EndianMirror 2 0x800)
+    318 string 128 "ANFAMAX_DUMBOOT"
+    881 U8         1;
+
+  WriteDescriptor imageBuffer SECTOR_BOOT
+    0x0  U8        VOL_DESC_BOOT
+    0x7  string 32 "EL TORITO SPECIFICATION"
+    0x47 U32       SECTOR_CATALOG;
+
+  WriteDescriptor imageBuffer SECTOR_TERMINATOR
+    0 U8 VOL_DESC_TERMINATOR;
+
+  WriteSector imageBuffer SECTOR_CATALOG
+  //  Validation Entry
+    0x0  U8        1
+    0x1  U8        0
+    0x4  string 24 "DUMBOOT"
+    0x1C U16       0x6E76    //  NOTE(alex): If we ever change the Validation Entry fields, this will need to be recomputed
+    0x1E U8        0x55
+    0x1F U8        0xAA
+  //  Initial/Default Entry
+    0x20 U8        0x88
+    0x26 U16       4
+    0x28 U32       SECTOR_LOADER;
+
+  Win32ReadFile inHandle (GetSectorAddress imageBuffer SECTOR_LOADER) (cast U32 size);
+  Win32WriteFile outHandle imageBuffer OUTPUT_SIZE;
+
+  Win32VirtualFree imageBuffer;
+  Win32CloseHandle inHandle;
+  Win32CloseHandle outHandle;</pre>
+        <p>The macro I was referring to is <span class="Keyword">WriteSector</span>. I needed to write values of differen types at differen offsets in <span class="Keyword">imageBuffer</span>.
+           Doing so is a straightforward process, let's assume I want to write a U32 at offset 10:</p>
+        <pre>
+  decl writeAddress = (cast (ptr U32) (+ imageBuffer 10));
+  set (->* writeAddress) value;</pre>
+        <p>If I want to write a string the process is slightly different: calculate the address, make sure the string is not too long, copy the string using a loop.
+           That's a lot of typing for something so simple! That's where the <span class="Keyword">WriteSector</span> macro comes into play.
+           The macro takes the buffer, a sector index (used to calculate the base address) and finally a list of offsets, types and expressions. First, it builds a list that calculates the base address.
+           Then it loops over the list of atoms in <span class="Keyword">Body</span> and appends to the result lists that perform the operations I described above.
+           At the end, if frees <span class="Keyword">Body</span>. You manage memory manually in macros, so you need to free any list that the compiler will never scan directly.
+           In this case, <span class="Keyword">Body</span> is not needed anymore after this macro ends, so we need to free it ourselves.
+        </p>
+        <br>
+        <p>Once the H2 compiler is done expanding macros and performing semantic analysis it outputs a <span class="Keyword">cpp</span> file. I haven't been working on this project for very long,
+           so the output is not as easy to read and debug as I would like yet. There is no indentation and there are a lot of unnecessary copies happening.
+           You can take a look at it <a href="win32_dumboot.cpp">here</a>.
+        </p>
+        <p>The Win32 wrapper library exposes the functions with the Win32 prefix I used in my program.
+           If you scroll down to the bottom, you will see that inside <span class="Keyword">main</span> our macros expanded correctly.
+        </p>
+        <br>
+        <p>That's pretty much all there is to H2 for now. If you have any questions or suggestions you can contact me at <em>anfamax@gmail.com</em></p>
+        <p>I'll be using this website for future updates. Oh, and that reminds me, I need to step up my web design game. I'm new to this web stuff so I apologize for the ugly website.</p>
+      </div>
+    </div>
+  </body>
+</html>
