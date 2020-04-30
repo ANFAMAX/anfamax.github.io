@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <meta charset="utf-8" />
+    <title>Syntax Update & Macro Examples</title>
+  </head>
+  <body>
+    <div class="Index">
+      <h3>Index</h3>
+      <ul>
+        <li><a href="#implicit_lists">Implicit Lists</a></li>
+        <li><a href="#types_decls_let">Types, Decls and 'let'</a></li>
+        <li><a href="#macros">Macros</a></li>
+      </ul>
+    </div>
+    <div class="Contents">
+      <div>
+        <h1>Syntax Update & Macro Examples</h1>
+        <p>I decided to play around with the syntax of H2 a bit.</p>
+        <p>While most of the language remains unchanged, the syntax for declaration, assignment, field access and math operators was replaced by a much more familiar syntax.
+           The biggest change from the <a href="h2_0.html">previous article</a> is that there are now some 'special' atoms that when written together with other atoms will implicitly generate a list.</p>
+        <h2 id="implicit_lists">Implicit Lists</h2>
+        An example will give you a good idea of what this is about.
+        <div class="HorizontalViewer">
+          <div class="HVEntry">
+            <pre>&Foo.Bar(3);</pre>
+            <pre>U32* MyPtr;</pre>
+            <pre>if !(FunctionCall 1 2 3)</pre>
+          </div>
+          <div class="HVEntry">
+            <pre>-></pre>
+            <pre>-></pre>
+            <pre>-></pre>
+          </div>
+          <div class="HVEntry">
+            <pre>(& Foo . Bar (3))</pre>
+            <pre>((U32 *) MyPtr)</pre>
+            <pre>if (! (FunctionCall 1 2 3))</pre>
+          </div>
+        </div>
+        <p>You can see from the examples that (<span class="Keyword">&</span>), (<span class="Keyword">*</span>), (<span class="Keyword">!</span>) and lists represent some of the 'special' atoms.</p>
+        <p>They build a list implicitly if and only if they are written together with another atom.</p>
+        <h2 id="types_decls_let">Types, Decls and 'let'</h2>
+        <p>The syntax for function pointers and pointers no longer involves <span class="Keyword">fn</span> and <span class="Keyword">ptr</span>. Arrays also changed slightly.</p>
+        <div class="HorizontalViewer">
+          <div class="HVEntry">
+            <pre>U32(U32 F32) MyFunctionPointer;</pre>
+            <pre>U32* MyPointer;</pre>
+            <pre>U32(255) MyArray;</pre>
+          </div>
+          <div class="HVEntry">
+            <pre>-></pre>
+            <pre>-></pre>
+            <pre>-></pre>
+          </div>
+          <div class="HVEntry">
+            <pre>((U32 (U32 F32)) MyFunctionPointer)</pre>
+            <pre>((U32 *) MyPointer)</pre>
+            <pre>((U32 (255)) MyArray)</pre>
+          </div>
+        </div>
+        <p>A list where the first atom represents a type and the second atom is a symbol is considered a declaration.</p>
+        <p>If you want to, you can initialize a variable on declaration or you can use <span class="Keyword">let</span> to let the compiler infer the right type.</p>
+        <pre>U32 foo = FunctionCall 1 2 3;</pre>
+        <pre>let bar = AnotherCall (foo + 0xFF) "hello world";</pre>
+        <h2 id="macros">Macros</h2>
+        <p>The symbols <span class="Keyword">(`)</span> and <span class="Keyword">(,)</span> are treated as 'special' and as such build lists implicitly, this results in a syntax that mirrors the one found in LISP. Let's have a look at how some common macros might be implemented in H2 (note that <span class="Keyword">step-list</span> is a function that returns the head of the list passed in and moves the list to the next atom).</p>
+        <h3>unless</h3>
+        <div class="HorizontalViewer">
+          <div class="HVSeparator">
+            <h4>Implementation</h4>
+            <pre>
+  macro unless Condition Body (
+    `(if (! ,Condition) ,Body);
+  );</pre>
+          </div>
+          <div class="HVSeparator">
+            <h4>Usage</h4>
+            <pre>
+  unless foo (print "Hello World");
+            </pre>
+          </div>
+          <div class="HVEntry">
+            <h4>Expansion</h4>
+            <pre>
+  (if (! foo) (print "Hello World"))
+            </pre>
+          </div>
+        </div>
+        <h3>cond</h3>
+        <div class="HorizontalViewer">
+          <div class="HVSeparator">
+            <h4>Implementation</h4>
+            <pre>
+  fn cond-helper (atom CondPairs) atom (
+    atom condition = step-list CondPairs;
+    atom      body = step-list CondPairs;
+    
+    if (symbol-eq `else condition)
+      body
+    else
+      `(if ,condition ,body
+        else ,(cond-helper CondPairs));
+  );
+  
+  macro cond CondPairs (
+    atom result = cond-helper CondPairs;
+    free-atom CondPairs;
+    result;
+  );</pre>
+          </div>
+          <div class="HVSeparator">
+            <h4>Usage</h4>
+            <pre>
+  cond
+    (foo && bar)
+      (print "First condition.")
+    (MyFunc 1 2)
+      (print "Second condition.")
+    else
+      (print "All conditions were false.");</pre>
+          </div>
+          <div class="HVEntry">
+            <h4>Expansion</h4>
+            <pre>
+  (if (foo && bar)
+    (print "First condition.")
+  else (if (MyFunc 1 2)
+    (print "Second condition.")
+  else
+    (print "All conditions were false.")))
+            </pre>
+          </div>
+        </div>
+        <h3>loop</h3>
+        <h4>Implementation</h4>
+        <pre>
+          macro loop Body (
+            atom  iterator = Body;
+            atom whichForm = step-list iterator;
+            atom  loopName = if (symbol-eq `name: whichForm) (
+              atom name = whichForm;
+              whichForm = step-list iterator;
+              name;
+            ) else (gensym);
+              
+            atom loopBody;
+            cond
+              (symbol-eq `for whichForm) (
+                atom      init = step-list iterator;
+                atom condition = step-list iterator;
+                atom      step = step-list iterator;
+                
+                loopBody = `(,init (labels ,loopName (if ,condition (,iterator ,step (goto ,loopName)))));
+              )
+              (symbol-eq `while whichForm) (
+                atom condition = step-list iterator;
+                
+                loopBody = `(labels ,loopName (if ,condition (,iterator (goto ,loopName))));
+              )
+              else (fail "Invalid loop: unrecognized form. The only forms are while and for.");
+                  
+            free-atom Body;
+            `(block ,loopName ,loopBody);
+          );</pre>
+        <div class="HorizontalViewer">
+          <div class="HVSeparator">
+            <h4>Usage</h4>
+            <pre>
+  loop name: outer for (U32 x = 0) (x < 10) (x += 1) (
+    loop while !(MyFunction x false) (
+      if (IsOdd x) (return-from outer);
+      //  More code ...
+    )
+  );</pre>
+          </div>
+          <div class="HVEntry">
+            <h4>Expansion</h4>
+            <pre>
+  (block outer (
+    (U32 x = 0)
+    (labels outer
+      (if (x < 10)
+        (block __0
+          (labels __0
+            (if (! (MyFunction x false))
+              ((if (IsOdd x) (return-from outer))
+              //  More code ...)
+              (goto __0))))
+        (goto outer)))))</pre>
+          </div>
+        </div>
+        <h3>cmpcond</h3>
+        <h4>Implementation</h4>
+        <pre>
+  macro cmpcond Variable Body (
+    atom varName  = gensym;
+    atom iterator = Body;
+    atom decl     = `(let ,varName = ,Variable);
+    atom condlist = `(cond);
+    
+    loop while !(null-atom? iterator) (
+      atom compare = step-list iterator;
+      atom value   = step-list iterator;
+      atom exec    = step-list iterator;
+      
+      append-atom &condlist `(,varName ,compare ,value);
+      append-atom &condlist exec;
+    );
+    
+    free-atom Body;
+    `(,decl ,condlist);
+  );</pre>
+        <div class="HorizontalViewer">
+          <div class="HVSeparator">
+            <h4>Usage</h4>
+            <pre>
+  cmpcond foo
+    < 3 (print "Foo is less than 3.")
+    > 7 (print "Foo is greater than 7.");</pre>
+          </div>
+          <div class="HVEntry">
+            <h4>Expansion</h4>
+            <pre>
+((let __0 = foo)
+ (cond
+   (__0 < 3) (print "Foo is less than 3.")
+   (__0 > 7) (print "Foo is greater than 7.")))
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

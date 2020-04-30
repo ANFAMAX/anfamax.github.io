@@ -13,6 +13,21 @@ h4 {
     margin: 1%;
 }
 
+.Home {
+    margin: auto;
+    width: 80%;
+    text-align: center;
+}
+
+.ArticleLink {
+    display: flex;
+    font-size: larger;
+}
+
+.ArticleLink > p {
+    margin-right: 4%;
+}
+
 .Index {
     width: 19%;
     text-align: right;
