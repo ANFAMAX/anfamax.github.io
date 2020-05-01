@@ -145,7 +145,7 @@
             atom  iterator = Body;
             atom whichForm = step-list iterator;
             atom  loopName = if (symbol-eq `name: whichForm) (
-              atom name = whichForm;
+              atom name = step-list iterator;
               whichForm = step-list iterator;
               name;
             ) else (gensym);
