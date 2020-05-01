@@ -99,9 +99,14 @@
     
     if (symbol-eq `else condition)
       body
-    else
-      `(if ,condition ,body
-        else ,(cond-helper CondPairs));
+    else (
+      if (null-atom? CondPairs) (
+        `(if ,condition ,body)
+      ) else (
+        `(if ,condition ,body
+          else ,(cond-helper CondPairs));        
+      )
+    );
   );
   
   macro cond CondPairs (
