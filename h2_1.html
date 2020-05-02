@@ -100,12 +100,11 @@
     if (symbol-eq `else condition)
       body
     else (
-      if (null-atom? CondPairs) (
+      if (null-atom? CondPairs)
         `(if ,condition ,body)
-      ) else (
+      else
         `(if ,condition ,body
-          else ,(cond-helper CondPairs));        
-      )
+          else ,(cond-helper CondPairs))
     );
   );
   
