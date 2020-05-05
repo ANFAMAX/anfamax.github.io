@@ -10,6 +10,7 @@
       <h3>Index</h3>
       <ul>
         <li><a href="#implicit_lists">Implicit Lists</a></li>
+        <li><a href="#automatic_last_list">Automatic Last List</a></li>
         <li><a href="#types_decls_let">Types, Decls and 'let'</a></li>
         <li><a href="#macros">Macros</a></li>
       </ul>
@@ -41,6 +42,20 @@
         </div>
         <p>You can see from the examples that (<span class="Keyword">&</span>), (<span class="Keyword">*</span>), (<span class="Keyword">!</span>) and lists represent some of the 'special' atoms.</p>
         <p>They build a list implicitly if and only if they are written together with another atom.</p>
+        <h2 id="automatic_last_list">Automatic Last List</h2>
+        <p>The last atoms in a list of lists of atoms will be automatically put in a list unless explicitly grouped together.</p>
+        <div class="HorizontalViewer">
+          <div class="HVEntry">
+            <pre>(Foo = 0; Foo < 10; Foo += 1)</pre>
+          </div>
+          <div class="HVEntry">
+            <pre>-></pre>
+          </div>
+          <div class="HVEntry">
+            <pre>((Foo = 0) (Foo < 10) (Foo += 1))</pre>
+          </div>
+        </div>
+        <p>Note how in the example above <span class="Keyword">Foo += 1</span> didn't need a terminating <span class="Keyword">;</span></p>
         <h2 id="types_decls_let">Types, Decls and 'let'</h2>
         <p>The syntax for function pointers and pointers no longer involves <span class="Keyword">fn</span> and <span class="Keyword">ptr</span>. Arrays also changed slightly.</p>
         <div class="HorizontalViewer">
