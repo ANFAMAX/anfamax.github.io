@@ -277,9 +277,7 @@
     
     append-list &orList `(,varName == ,(step-list &iter));
     loop while !(null-atom? iterator) (
-      append-list &orList `(
-        || ,varName == ,(step-list &iter)
-      )
+      append-list &orList `(|| ,varName == ,(step-list &iter))
     );
     
     free-atom Values;
