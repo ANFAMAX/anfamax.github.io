@@ -80,15 +80,33 @@
         <pre>U32 foo = FunctionCall 1 2 3;</pre>
         <pre>let bar = AnotherCall (foo + 0xFF) "hello world";</pre>
         <h2 id="macros">Macros</h2>
-        <p>The symbols <span class="Keyword">(`)</span> and <span class="Keyword">(,)</span> are treated as 'special' and as such build lists implicitly, this results in a syntax that mirrors the one found in LISP. Let's have a look at how some common macros might be implemented in H2 (note that <span class="Keyword">step-list</span> is a function that returns the head of the list passed in and moves the list to the next atom).</p>
+        <p>The symbols <span class="Keyword">(`)</span> and <span class="Keyword">(,)</span> are treated as 'special' and as such build lists implicitly, this results in a syntax that mirrors the one found in LISP.
+           Before we look at how some common macros are implemented in H2, here are a couple of handy functions used in these macros (you can mark functions and structs to be only available at compile time using the <span class="Keyword">compile-time</span> keyword).</p>
+        <h3>step-list</h3>
+        <pre>
+          compile-time fn step-list (atom* List) atom (
+            atom first = head *List;
+            *List = rest *List;
+            first;
+          );
+        </pre>
+        <h3>append-list</h3>
+        <pre>
+          compile-time fn append-list (atom* List; atom Atom) void (
+            atom iter = Atom;
+            loop while !(null-atom? iter)             //  loop is a macro, you will see how it's implemented shortly!
+              (append-atom List (step-list iter));
+            free-atom Atom;
+          );
+        </pre>
+        <p>With that out of the way, it's time for some macros!</p>
         <h3>unless</h3>
         <div class="HorizontalViewer">
           <div class="HVSeparator">
             <h4>Implementation</h4>
             <pre>
-  macro unless Condition Body (
-    `(if (! ,Condition) ,Body);
-  );</pre>
+  macro unless Condition Body
+    `(if (! ,Condition) ,Body)</pre>
           </div>
           <div class="HVSeparator">
             <h4>Usage</h4>
@@ -104,31 +122,30 @@
           </div>
         </div>
         <h3>cond</h3>
+        <h4>Implementation</h4>
+        <pre>
+          compile-time fn cond-helper (atom CondPairs) atom (
+            atom condition = step-list &CondPairs;
+            atom      body = step-list &CondPairs;
+            
+            if (symbol-eq `else condition)
+              body
+            else (
+              if (null-atom? CondPairs)
+                `(if ,condition ,body)
+              else
+                `(if ,condition ,body
+                  else ,(cond-helper CondPairs))
+            );
+          );
+          
+          macro cond CondPairs (
+            atom result = cond-helper CondPairs;
+            free-atom CondPairs;
+            result;
+          );
+        </pre>
         <div class="HorizontalViewer">
-          <div class="HVSeparator">
-            <h4>Implementation</h4>
-            <pre>
-  fn cond-helper (atom CondPairs) atom (
-    atom condition = step-list CondPairs;
-    atom      body = step-list CondPairs;
-    
-    if (symbol-eq `else condition)
-      body
-    else (
-      if (null-atom? CondPairs)
-        `(if ,condition ,body)
-      else
-        `(if ,condition ,body
-          else ,(cond-helper CondPairs))
-    );
-  );
-  
-  macro cond CondPairs (
-    atom result = cond-helper CondPairs;
-    free-atom CondPairs;
-    result;
-  );</pre>
-          </div>
           <div class="HVSeparator">
             <h4>Usage</h4>
             <pre>
@@ -155,34 +172,34 @@
         <h3>loop</h3>
         <h4>Implementation</h4>
         <pre>
-          macro loop Body (
-            atom  iterator = Body;
-            atom whichForm = step-list iterator;
-            atom  loopName = if (symbol-eq `name: whichForm) (
-              atom name = step-list iterator;
-              whichForm = step-list iterator;
-              name;
-            ) else (gensym);
-              
-            atom loopBody;
-            cond
-              (symbol-eq `for whichForm) (
-                atom      init = step-list iterator;
-                atom condition = step-list iterator;
-                atom      step = step-list iterator;
-                
-                loopBody = `(,init (labels ,loopName (if ,condition (,iterator ,step (goto ,loopName)))));
-              )
-              (symbol-eq `while whichForm) (
-                atom condition = step-list iterator;
-                
-                loopBody = `(labels ,loopName (if ,condition (,iterator (goto ,loopName))));
-              )
-              else (fail "Invalid loop: unrecognized form. The only forms are while and for.");
-                  
-            free-atom Body;
-            `(block ,loopName ,loopBody);
-          );</pre>
+  macro loop Body (
+    atom  iterator = Body;
+    atom whichForm = step-list &iterator;
+    atom  loopName = if (symbol-eq `name: whichForm) (
+      atom name = step-list &iterator;
+      whichForm = step-list &iterator;
+      name;
+    ) else (gensym);
+      
+    atom loopBody;
+    cond
+      (symbol-eq `for whichForm) (
+        atom      init = step-list &iterator;
+        atom condition = step-list &iterator;
+        atom      step = step-list &iterator;
+        
+        loopBody = `(,init (labels ,loopName (if ,condition (,iterator ,step (goto ,loopName)))));
+      )
+      (symbol-eq `while whichForm) (
+        atom condition = step-list &iterator;
+        
+        loopBody = `(labels ,loopName (if ,condition (,iterator (goto ,loopName))));
+      )
+      else (fail "Invalid loop: unrecognized form. The only forms are while and for.");
+          
+    free-atom Body;
+    `(block ,loopName ,loopBody);
+  );</pre>
         <div class="HorizontalViewer">
           <div class="HVSeparator">
             <h4>Usage</h4>
@@ -220,9 +237,9 @@
     atom condlist = `(cond);
     
     loop while !(null-atom? iterator) (
-      atom compare = step-list iterator;
-      atom value   = step-list iterator;
-      atom exec    = step-list iterator;
+      atom compare = step-list &iterator;
+      atom value   = step-list &iterator;
+      atom exec    = step-list &iterator;
       
       append-atom &condlist `(,varName ,compare ,value);
       append-atom &condlist exec;
@@ -247,6 +264,43 @@
    (__0 < 3) (print "Foo is less than 3.")
    (__0 > 7) (print "Foo is greater than 7.")))
             </pre>
+          </div>
+        </div>
+        <h3>either</h3>
+        <h4>Implementation</h4>
+        <pre>
+  macro either Expr Values (
+    atom varName = gensym;
+    atom    decl = `(let ,varName = ,Expr);
+    atom    iter = Values;
+    atom  orList = `();
+    
+    append-list &orList `(,varName == ,(step-list &iter));
+    loop while !(null-atom? iterator) (
+      append-list &orList `(
+        || ,varName == ,(step-list &iter)
+      )
+    );
+    
+    free-atom Values;
+    `(,decl ,orList);
+  );</pre>
+        <div class="HorizontalViewer">
+          <div class="HVSeparator">
+            <h4>Usage</h4>
+            <pre>
+  U32 myVar = MyFunction 1 2 3;
+  if (either myVar 3 4 8 271) (
+    //  Do something ...
+  );</pre>
+          </div>
+          <div class="HVEntry">
+            <h4>Expansion</h4>
+            <pre>
+  (U32 myVar = MyFunction 1 2 3)
+  (if ((let __0 = myVar) (__0 == 3 || __0 == 4 || __0 == 8 || __0 == 271)) (
+    //  Do something ...
+  ))</pre>
           </div>
         </div>
       </div>
