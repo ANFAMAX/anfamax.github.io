@@ -188,12 +188,12 @@
         atom condition = step-list &iterator;
         atom      step = step-list &iterator;
         
-        loopBody = `(,init (labels ,loopName (if ,condition (,iterator ,step (goto ,loopName)))));
+        loopBody = `(,init (labels ,loopName (if ,condition (,(step-list &iterator) ,step (goto ,loopName)))));
       )
       (symbol-eq `while whichForm) (
         atom condition = step-list &iterator;
         
-        loopBody = `(labels ,loopName (if ,condition (,iterator (goto ,loopName))));
+        loopBody = `(labels ,loopName (if ,condition (,(step-list &iterator) (goto ,loopName))));
       )
       else (fail "Invalid loop: unrecognized form. The only forms are while and for.");
           
